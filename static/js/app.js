@@ -18,7 +18,18 @@
     overflow: $("#stat-overflow"),
     toast: $("#toast"),
     help: $("#help-dialog"),
+    popover: $("#cell-popover"),
+    popPreview: $("#cell-popover-preview"),
+    popEdit: $("#cell-popover-edit"),
+    popLabel: $("#cell-popover-label"),
+    popActions: $("#cell-popover-actions"),
+    popHint: $("#cell-popover-hint"),
+    popSave: $("#cell-popover-save"),
+    popCancel: $("#cell-popover-cancel"),
   };
+
+  let popoverState = null; // { input, onCommit, hideTimer }
+  let popoverPinned = false;
 
   function toast(msg) {
     els.toast.textContent = msg;
@@ -271,7 +282,121 @@
     input.addEventListener("blur", () => finish(true));
   }
 
-  function makeInput(value, className, onCommit) {
+  function isTruncated(input) {
+    if (!input) return false;
+    return input.scrollWidth > input.clientWidth + 1;
+  }
+
+  function hidePopover(force = false) {
+    if (popoverPinned && !force) return;
+    clearTimeout(popoverState?.hideTimer);
+    popoverPinned = false;
+    popoverState = null;
+    els.popover.classList.add("hidden");
+    els.popover.setAttribute("aria-hidden", "true");
+    els.popEdit.classList.add("hidden");
+    els.popPreview.classList.remove("hidden");
+    els.popActions.classList.add("hidden");
+    els.popHint.classList.remove("hidden");
+    els.popEdit.value = "";
+  }
+
+  function placePopover(anchor) {
+    const rect = anchor.getBoundingClientRect();
+    const pop = els.popover;
+    pop.classList.remove("hidden");
+    pop.setAttribute("aria-hidden", "false");
+    const pad = 8;
+    let top = rect.bottom + pad;
+    let left = rect.left;
+    const pw = pop.offsetWidth || 320;
+    const ph = pop.offsetHeight || 120;
+    if (left + pw > window.innerWidth - 12) left = window.innerWidth - pw - 12;
+    if (left < 12) left = 12;
+    if (top + ph > window.innerHeight - 12) top = rect.top - ph - pad;
+    if (top < 12) top = 12;
+    pop.style.top = `${Math.round(top)}px`;
+    pop.style.left = `${Math.round(left)}px`;
+  }
+
+  function showPopoverPreview(input, onCommit, label) {
+    if (popoverPinned) return;
+    if (!isTruncated(input) && !(input.value || "").trim()) {
+      hidePopover(true);
+      return;
+    }
+    if (!isTruncated(input)) {
+      hidePopover(true);
+      return;
+    }
+    clearTimeout(popoverState?.hideTimer);
+    popoverState = { input, onCommit, hideTimer: null };
+    popoverPinned = false;
+    els.popLabel.textContent = label || "Texto completo";
+    els.popPreview.textContent = input.value || "";
+    els.popEdit.classList.add("hidden");
+    els.popPreview.classList.remove("hidden");
+    els.popActions.classList.add("hidden");
+    els.popHint.classList.remove("hidden");
+    placePopover(input);
+  }
+
+  function openPopoverEditor() {
+    if (!popoverState?.input) return;
+    popoverPinned = true;
+    clearTimeout(popoverState.hideTimer);
+    const text = popoverState.input.value || "";
+    els.popPreview.classList.add("hidden");
+    els.popHint.classList.add("hidden");
+    els.popEdit.classList.remove("hidden");
+    els.popActions.classList.remove("hidden");
+    els.popEdit.value = text;
+    placePopover(popoverState.input);
+    els.popEdit.focus();
+    els.popEdit.setSelectionRange(text.length, text.length);
+  }
+
+  function savePopoverEdit() {
+    if (!popoverState?.input) {
+      hidePopover(true);
+      return;
+    }
+    const next = els.popEdit.value;
+    const { input, onCommit } = popoverState;
+    if (next !== input.value) {
+      input.value = next;
+      onCommit(next);
+    }
+    hidePopover(true);
+  }
+
+  function attachOverflowPopover(input, onCommit, label) {
+    input.addEventListener("mouseenter", () => {
+      if (document.activeElement === input) return;
+      showPopoverPreview(input, onCommit, label);
+    });
+    input.addEventListener("mouseleave", () => {
+      if (popoverPinned) return;
+      if (popoverState) {
+        clearTimeout(popoverState.hideTimer);
+        popoverState.hideTimer = setTimeout(() => hidePopover(false), 180);
+      }
+    });
+    input.addEventListener("click", (e) => {
+      if (!isTruncated(input) && !(input.value || "").length) return;
+      if (!isTruncated(input)) return;
+      e.preventDefault();
+      popoverState = { input, onCommit, hideTimer: null };
+      placePopover(input);
+      els.popLabel.textContent = label || "Texto completo";
+      openPopoverEditor();
+    });
+    input.addEventListener("focus", () => {
+      if (!popoverPinned) hidePopover(true);
+    });
+  }
+
+  function makeInput(value, className, onCommit, popoverLabel) {
     const input = document.createElement("input");
     input.type = "text";
     input.className = "cell-input " + (className || "");
@@ -290,6 +415,12 @@
         input.blur();
       }
     });
+    if (popoverLabel) {
+      attachOverflowPopover(input, (v) => {
+        last = v;
+        onCommit(v);
+      }, popoverLabel);
+    }
     return input;
   }
 
@@ -357,7 +488,7 @@
         makeInput(row.task, "", (v) => {
           row.task = v;
           scheduleSave();
-        })
+        }, "Tarea")
       );
 
       const tdLink = document.createElement("td");
@@ -368,7 +499,7 @@
         row.link = v.trim();
         scheduleSave();
         refreshLinkButton(goBtn, row.link);
-      });
+      }, "Vínculo");
       linkInput.placeholder = "sheet:semana o https://...";
       linkInput.title =
         "Hoja interna: sheet:id o nombre de pestaña. Externo/documento: https://... o archivo.pdf";
@@ -436,7 +567,7 @@
         makeInput(row.notes, "", (v) => {
           row.notes = v;
           scheduleSave();
-        })
+        }, "Notas")
       );
 
       const tdDel = document.createElement("td");
@@ -557,6 +688,51 @@
 
   els.dayStart.addEventListener("change", patchBounds);
   els.dayEnd.addEventListener("change", patchBounds);
+
+  els.popover.addEventListener("mouseenter", () => {
+    if (popoverState) clearTimeout(popoverState.hideTimer);
+  });
+  els.popover.addEventListener("mouseleave", () => {
+    if (popoverPinned) return;
+    if (popoverState) {
+      clearTimeout(popoverState.hideTimer);
+      popoverState.hideTimer = setTimeout(() => hidePopover(false), 160);
+    }
+  });
+  els.popover.addEventListener("click", (e) => {
+    if (popoverPinned) return;
+    if (e.target.closest(".cell-popover-actions")) return;
+    openPopoverEditor();
+  });
+  els.popSave.addEventListener("click", (e) => {
+    e.stopPropagation();
+    savePopoverEdit();
+  });
+  els.popCancel.addEventListener("click", (e) => {
+    e.stopPropagation();
+    hidePopover(true);
+  });
+  els.popEdit.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") {
+      e.preventDefault();
+      hidePopover(true);
+    }
+    if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
+      e.preventDefault();
+      savePopoverEdit();
+    }
+  });
+  document.addEventListener("mousedown", (e) => {
+    if (!popoverPinned) return;
+    if (els.popover.contains(e.target)) return;
+    if (popoverState?.input && popoverState.input.contains(e.target)) return;
+    savePopoverEdit();
+  });
+  window.addEventListener("scroll", () => {
+    if (!els.popover.classList.contains("hidden") && popoverState?.input) {
+      placePopover(popoverState.input);
+    }
+  }, true);
 
   window.addEventListener("beforeunload", (e) => {
     if (dirty) {

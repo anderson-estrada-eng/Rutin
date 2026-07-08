@@ -252,6 +252,9 @@ body {
   padding: 0.5rem 0.65rem;
   outline: none;
   width: 100%;
+  text-overflow: ellipsis;
+  overflow: hidden;
+  white-space: nowrap;
 }
 
 .field input:focus,
@@ -634,4 +637,66 @@ dialog::backdrop {
   .brand h1 { font-size: 1.25rem; }
   .meta-stats { margin-left: 0; width: 100%; }
   .tagline { display: none; }
+}
+
+.cell-popover {
+  position: fixed;
+  z-index: 80;
+  width: min(360px, calc(100vw - 24px));
+  max-width: 360px;
+  padding: 12px;
+  background: #18222e;
+  border: 1px solid rgba(61, 214, 198, 0.35);
+  border-radius: 12px;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.55);
+  color: var(--text);
+}
+
+.cell-popover-label {
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+.cell-popover-preview {
+  font-family: var(--font);
+  font-size: 0.95rem;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 180px;
+  overflow: auto;
+  cursor: text;
+}
+
+.cell-popover-edit {
+  width: 100%;
+  min-height: 110px;
+  resize: vertical;
+  font-family: var(--font);
+  font-size: 0.95rem;
+  line-height: 1.45;
+  color: var(--text);
+  background: var(--cell);
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  padding: 0.55rem 0.65rem;
+  outline: none;
+  box-shadow: 0 0 0 3px var(--accent-dim);
+}
+
+.cell-popover-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.cell-popover-hint {
+  margin: 8px 0 0;
+  font-size: 0.75rem;
+  color: var(--muted);
 }

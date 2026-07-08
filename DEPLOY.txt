@@ -55,16 +55,23 @@ B) PYTHONANYWHERE — PRIMERA VEZ
 7. Abre: https://TU_PA_USER.pythonanywhere.com
 
 
-C) ACTUALIZAR DESPUÉS DE UN git push
-------------------------------------
+C) ACTUALIZAR DESPUÉS DE UN git push (SIN TOCAR TUS DATOS)
+----------------------------------------------------------
+IMPORTANTE: Lee DATOS_PROTEGIDOS.md
+data/workbook.json YA NO va en git → tus hojas/tareas en el servidor se quedan.
+
 En Bash de PythonAnywhere:
 
    cd ~/Rutin
+   cp -n data/workbook.json data/workbook.json.bak 2>/dev/null || true
    git pull origin main
-   source ~/.virtualenvs/rutina/bin/activate
-   pip install -r requirements.txt
 
 Luego Web → Reload.
+
+NUNCA hagas:
+   git checkout -- data/workbook.json
+   git restore data/workbook.json
+
 
 
 E) LOGIN (importante)

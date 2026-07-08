@@ -11,4 +11,5 @@ secrets/flask_secret.txt
 Thumbs.db
 .idea/
 .vscode/
+data/workbook.json
 data/*.json.bak

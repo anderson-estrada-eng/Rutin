@@ -40,6 +40,7 @@ from schedule import (
 BASE_DIR = Path(__file__).resolve().parent
 DATA_DIR = BASE_DIR / "data"
 DATA_FILE = DATA_DIR / "workbook.json"
+DATA_EXAMPLE = DATA_DIR / "workbook.example.json"
 
 ensure_secrets()
 
@@ -55,9 +56,14 @@ app.config.update(
 
 
 def ensure_data() -> None:
+    """Crea workbook solo si NO existe. Nunca pisa datos del usuario."""
     DATA_DIR.mkdir(parents=True, exist_ok=True)
-    if not DATA_FILE.exists():
-        save_workbook(default_workbook())
+    if DATA_FILE.exists():
+        return
+    if DATA_EXAMPLE.exists():
+        DATA_FILE.write_text(DATA_EXAMPLE.read_text(encoding="utf-8"), encoding="utf-8")
+        return
+    save_workbook(default_workbook())
 
 
 def load_workbook() -> dict:

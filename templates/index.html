@@ -97,6 +97,7 @@
           <code>sheet:semana</code> o el nombre de la hoja → cambia a esa pestaña aquí mismo;
           <code>https://...</code> o un documento (PDF, Drive, etc.) → se abre en otra pestaña del navegador.
         </li>
+        <li><strong>Texto largo</strong>: si la celda corta el texto, al pasar el mouse ves el completo; clic en el globo o en la celda para editarlo ahí.</li>
         <li><strong>Acceso</strong>: la app pide usuario y contraseña; sin sesión no se puede ver ni la API.</li>
       </ul>
       <button class="btn primary" value="ok">Entendido</button>
@@ -104,6 +105,17 @@
   </dialog>
 
   <div class="toast hidden" id="toast" role="status"></div>
+
+  <div id="cell-popover" class="cell-popover hidden" role="dialog" aria-hidden="true">
+    <div class="cell-popover-label" id="cell-popover-label">Texto completo</div>
+    <div class="cell-popover-preview" id="cell-popover-preview"></div>
+    <textarea id="cell-popover-edit" class="cell-popover-edit hidden" rows="4"></textarea>
+    <div class="cell-popover-actions hidden" id="cell-popover-actions">
+      <button type="button" class="btn ghost" id="cell-popover-cancel">Cancelar</button>
+      <button type="button" class="btn primary" id="cell-popover-save">Guardar</button>
+    </div>
+    <p class="cell-popover-hint" id="cell-popover-hint">Clic para editar aquí</p>
+  </div>
 
   <script src="{{ url_for('static', filename='js/app.js') }}"></script>
 </body>

@@ -1,0 +1,25 @@
+---
+description: Nunca borrar ni sobrescribir datos del usuario (workbook.json)
+alwaysApply: true
+---
+
+# Datos del usuario protegidos
+
+Lee y obedece `DATOS_PROTEGIDOS.md` en la raíz del proyecto.
+
+El usuario **ya tiene datos reales** en PythonAnywhere (`data/workbook.json`).
+
+## Prohibido
+
+- Sobrescribir, regenerar, resetear o reemplazar `data/workbook.json`
+- Incluir cambios a `data/workbook.json` en commits de features (salvo que el usuario lo pida explícitamente)
+- Indicar al usuario `git checkout -- data/workbook.json` o `git restore data/workbook.json` en el servidor
+- Usar `blank_sheet` / `default_workbook` / `starter_sheet` para pisar datos existentes en el servidor
+
+## Permitido
+
+- Cambiar código (Flask, JS, CSS, auth)
+- Mantener `data/workbook.example.json` como plantilla solo para instalaciones nuevas
+- Si `data/workbook.json` no existe localmente, crearlo desde el example — **nunca** al revés sobre datos existentes
+
+Al desplegar o asesorar `git pull` en PythonAnywhere, prioriza conservar el workbook del servidor.
