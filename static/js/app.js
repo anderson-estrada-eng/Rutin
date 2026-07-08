@@ -284,7 +284,28 @@
 
   function isTruncated(input) {
     if (!input) return false;
-    return input.scrollWidth > input.clientWidth + 1;
+    const val = input.value || "";
+    if (!val) return false;
+    // inputs a veces no reportan scrollWidth bien; prueba real + heurística
+    if (input.scrollWidth > input.clientWidth + 1) return true;
+    try {
+      const style = window.getComputedStyle(input);
+      const canvas = isTruncated._c || (isTruncated._c = document.createElement("canvas"));
+      const ctx = canvas.getContext("2d");
+      ctx.font = `${style.fontWeight} ${style.fontSize} ${style.fontFamily}`;
+      const textW = ctx.measureText(val).width;
+      const padL = parseFloat(style.paddingLeft) || 0;
+      const padR = parseFloat(style.paddingRight) || 0;
+      return textW > input.clientWidth - padL - padR - 2;
+    } catch (_) {
+      return val.length > 28;
+    }
+  }
+
+  function shouldOfferPopover(input) {
+    const val = (input?.value || "").trim();
+    if (!val) return false;
+    return isTruncated(input) || val.length > 24;
   }
 
   function hidePopover(force = false) {
@@ -321,11 +342,7 @@
 
   function showPopoverPreview(input, onCommit, label) {
     if (popoverPinned) return;
-    if (!isTruncated(input) && !(input.value || "").trim()) {
-      hidePopover(true);
-      return;
-    }
-    if (!isTruncated(input)) {
+    if (!shouldOfferPopover(input)) {
       hidePopover(true);
       return;
     }
@@ -383,12 +400,11 @@
       }
     });
     input.addEventListener("click", (e) => {
-      if (!isTruncated(input) && !(input.value || "").length) return;
-      if (!isTruncated(input)) return;
+      if (!shouldOfferPopover(input)) return;
       e.preventDefault();
       popoverState = { input, onCommit, hideTimer: null };
-      placePopover(input);
       els.popLabel.textContent = label || "Texto completo";
+      placePopover(input);
       openPopoverEditor();
     });
     input.addEventListener("focus", () => {
