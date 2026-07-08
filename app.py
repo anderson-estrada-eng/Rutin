@@ -34,6 +34,7 @@ from schedule import (
     new_row,
     normalize_link,
     parse_duration,
+    patch_row_times,
     recompute_sheet,
 )
 from workbook_layout import (
@@ -329,9 +330,17 @@ def api_patch_row(sheet_id: str, row_index: int):
         row["link"] = normalize_link(body["link"])
     if "timed" in body:
         row["timed"] = as_bool(body["timed"])
-    if "duration" in body:
-        row["duration"] = parse_duration(body["duration"])
-    data["sheets"][sheet_id] = recompute_sheet(sheet)
+    if "start" in body or "end" in body:
+        data["sheets"][sheet_id] = patch_row_times(
+            sheet,
+            row_index,
+            start=body.get("start"),
+            end=body.get("end"),
+        )
+    else:
+        if "duration" in body:
+            row["duration"] = parse_duration(body["duration"])
+        data["sheets"][sheet_id] = recompute_sheet(sheet)
     save_workbook(data)
     return jsonify(data["sheets"][sheet_id])
 

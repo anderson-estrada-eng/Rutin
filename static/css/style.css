@@ -429,7 +429,14 @@ body {
   font-family: var(--mono);
   font-size: 0.86rem;
   color: var(--accent);
-  padding-left: 10px;
+  padding: 4px 6px;
+}
+
+.time-cell .cell-input.time-input {
+  font-family: var(--mono);
+  font-size: 0.86rem;
+  color: var(--accent);
+  padding: 6px 8px;
 }
 
 .time-cell.empty {

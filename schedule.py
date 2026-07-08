@@ -135,6 +135,100 @@ def as_bool(value: Any) -> bool:
     return s in {"1", "true", "sí", "si", "yes", "y", "x", "✓", "check"}
 
 
+def _apply_timed_row(
+    row: dict[str, Any],
+    row_start: int,
+    duration: int,
+    soft_end: int,
+) -> bool:
+    """Escribe inicio/fin/duración en una fila con horario. Devuelve si hay overflow."""
+    row["duration"] = duration
+    row["duration_minutes"] = duration
+    row["duration_label"] = format_duration(duration)
+    row_end = row_start + duration
+    row["start_minutes"] = row_start
+    row["end_minutes"] = row_end
+    row["start"] = minutes_to_clock(row_start)
+    row["end"] = minutes_to_clock(row_end)
+    row["overflow"] = row_end > soft_end
+    return bool(row["overflow"])
+
+
+def _clear_timed_row(row: dict[str, Any]) -> None:
+    row["start"] = ""
+    row["end"] = ""
+    row["start_minutes"] = None
+    row["end_minutes"] = None
+    row["overflow"] = False
+
+
+def patch_row_times(
+    sheet: dict[str, Any],
+    row_index: int,
+    *,
+    start: Any = None,
+    end: Any = None,
+) -> dict[str, Any]:
+    """
+    Cambia inicio y/o fin de una fila con horario y recalcula las siguientes.
+    - Inicio: mueve la tarea manteniendo la duración.
+    - Fin: ajusta la duración (fin − inicio actual).
+    """
+    sheet = recompute_sheet(sheet)
+    rows: list[dict[str, Any]] = sheet.get("rows", [])
+    if row_index < 0 or row_index >= len(rows):
+        return sheet
+
+    row = rows[row_index]
+    if not as_bool(row.get("timed", True)):
+        return sheet
+
+    start_min = clock_to_minutes(start) if start is not None else None
+    end_min = clock_to_minutes(end) if end is not None else None
+    if start_min is None and end_min is None:
+        return sheet
+
+    soft_end = clock_to_minutes(sheet.get("day_end")) or DAY_END_MIN
+
+    if start_min is not None and end_min is not None:
+        new_start = start_min
+        new_duration = max(0, end_min - start_min)
+    elif start_min is not None:
+        new_start = start_min
+        new_duration = parse_duration(row.get("duration"))
+    else:
+        existing_start = row.get("start_minutes")
+        if existing_start is None:
+            return sheet
+        new_start = int(existing_start)
+        new_duration = max(0, int(end_min) - new_start)
+
+    overflow = _apply_timed_row(row, new_start, new_duration, soft_end)
+    cursor = new_start + new_duration
+
+    for i in range(row_index + 1, len(rows)):
+        r = rows[i]
+        r["timed"] = as_bool(r.get("timed", True))
+        r["link"] = normalize_link(r.get("link", ""))
+        if not r["timed"]:
+            duration = parse_duration(r.get("duration"))
+            r["duration_minutes"] = duration
+            r["duration_label"] = format_duration(duration)
+            _clear_timed_row(r)
+            continue
+        duration = parse_duration(r.get("duration"))
+        if _apply_timed_row(r, cursor, duration, soft_end):
+            overflow = True
+        cursor += duration
+
+    sheet["timeline_end"] = minutes_to_clock(cursor)
+    sheet["timeline_end_minutes"] = cursor
+    sheet["overflow"] = overflow
+    sheet["remaining_minutes"] = max(0, soft_end - cursor)
+    sheet["remaining_label"] = format_duration(sheet["remaining_minutes"])
+    return sheet
+
+
 def recompute_sheet(sheet: dict[str, Any]) -> dict[str, Any]:
     """
     Recalcula inicio/fin de filas con horario=True, en el orden del array.

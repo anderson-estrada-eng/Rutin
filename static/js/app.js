@@ -831,11 +831,39 @@
 
       const tdStart = document.createElement("td");
       tdStart.className = "time-cell" + (row.timed ? "" : " empty");
-      tdStart.textContent = row.timed ? row.start || "—" : "—";
+      const startInput = makeInput(row.timed ? row.start || "" : "", "time-input", async (v) => {
+        try {
+          const updated = await api(`/api/sheets/${activeId}/rows/${index}`, {
+            method: "PATCH",
+            body: JSON.stringify({ start: v }),
+          });
+          workbook.sheets[activeId] = updated;
+          render();
+        } catch (err) {
+          toast(err.message);
+        }
+      });
+      startInput.disabled = !row.timed;
+      if (!row.timed) startInput.placeholder = "—";
+      tdStart.appendChild(startInput);
 
       const tdEnd = document.createElement("td");
       tdEnd.className = "time-cell" + (row.timed ? "" : " empty");
-      tdEnd.textContent = row.timed ? row.end || "—" : "—";
+      const endInput = makeInput(row.timed ? row.end || "" : "", "time-input", async (v) => {
+        try {
+          const updated = await api(`/api/sheets/${activeId}/rows/${index}`, {
+            method: "PATCH",
+            body: JSON.stringify({ end: v }),
+          });
+          workbook.sheets[activeId] = updated;
+          render();
+        } catch (err) {
+          toast(err.message);
+        }
+      });
+      endInput.disabled = !row.timed;
+      if (!row.timed) endInput.placeholder = "—";
+      tdEnd.appendChild(endInput);
 
       const tdNotes = document.createElement("td");
       tdNotes.appendChild(

@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=5" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=6" />
 </head>
 <body>
   <div class="app">
@@ -91,6 +91,7 @@
       <ul>
         <li><strong>¿Horario?</strong> Si está marcado, la tarea entra en la línea del tiempo desde el inicio del día.</li>
         <li><strong>Duración</strong>: escribe <code>30</code>, <code>45m</code>, <code>1h</code>, <code>1h30</code> o <code>1:30</code>.</li>
+        <li><strong>Inicio / Fin</strong>: edítalos directamente (<code>7:30 AM</code>, <code>2:00 PM</code>…). Cambiar inicio mueve la tarea; cambiar fin ajusta su duración. Las de abajo se recalculan solas.</li>
         <li><strong>Reordenar</strong>: arrastra la fila; la duración se mueve y las horas de abajo se ajustan solas.</li>
         <li><strong>Límites</strong>: empieza a las <strong>6:00 AM</strong>; no debería pasar de las <strong>4:00 PM</strong>. La siguiente madrugada referencia es <strong>7:00 AM</strong>.</li>
         <li><strong>Pestañas</strong>: clic para abrir; <strong>✎</strong> o doble clic para renombrar; <strong>+</strong> añade hoja vacía; × elimina.</li>
@@ -133,6 +134,6 @@
     <button type="button" class="btn ghost link-picker-clear" id="link-picker-clear">Quitar vínculo</button>
   </div>
 
-  <script src="{{ url_for('static', filename='js/app.js') }}?v=5"></script>
+  <script src="{{ url_for('static', filename='js/app.js') }}?v=6"></script>
 </body>
 </html>
