@@ -4,11 +4,30 @@ from __future__ import annotations
 
 import json
 import re
+from functools import wraps
 from pathlib import Path
 
-from flask import Flask, jsonify, render_template, request
+from flask import (
+    Flask,
+    jsonify,
+    redirect,
+    render_template,
+    request,
+    session,
+    url_for,
+)
 
+from auth import (
+    clear_fails,
+    ensure_secrets,
+    is_locked,
+    load_flask_secret,
+    lock_remaining,
+    register_fail,
+    verify_credentials,
+)
 from schedule import (
+    as_bool,
     blank_sheet,
     default_workbook,
     move_row,
@@ -16,14 +35,23 @@ from schedule import (
     normalize_link,
     parse_duration,
     recompute_sheet,
-    as_bool,
 )
 
 BASE_DIR = Path(__file__).resolve().parent
 DATA_DIR = BASE_DIR / "data"
 DATA_FILE = DATA_DIR / "workbook.json"
 
+ensure_secrets()
+
 app = Flask(__name__)
+app.secret_key = load_flask_secret()
+app.config.update(
+    SESSION_COOKIE_HTTPONLY=True,
+    SESSION_COOKIE_SAMESITE="Lax",
+    SESSION_COOKIE_SECURE=False,  # True automático detrás de HTTPS en before_request
+    PERMANENT_SESSION_LIFETIME=60 * 60 * 12,  # 12 horas
+    MAX_CONTENT_LENGTH=2 * 1024 * 1024,
+)
 
 
 def ensure_data() -> None:
@@ -36,7 +64,6 @@ def load_workbook() -> dict:
     ensure_data()
     with DATA_FILE.open("r", encoding="utf-8") as f:
         data = json.load(f)
-    # Normalizar hojas
     sheets = data.get("sheets") or {}
     for sid, sheet in list(sheets.items()):
         sheets[sid] = recompute_sheet(sheet)
@@ -60,17 +87,110 @@ def slugify(name: str) -> str:
     return s[:40]
 
 
-@app.route("/")
+def logged_in() -> bool:
+    return bool(session.get("authed") and session.get("user"))
+
+
+def login_required(view):
+    @wraps(view)
+    def wrapped(*args, **kwargs):
+        if not logged_in():
+            if request.path.startswith("/api/"):
+                return jsonify({"error": "No autorizado"}), 401
+            return redirect(url_for("login", next=request.path))
+        return view(*args, **kwargs)
+
+    return wrapped
+
+
+@app.before_request
+def _secure_cookie_and_gate():
+    # Cookie Secure en HTTPS (PythonAnywhere)
+    if request.is_secure or request.headers.get("X-Forwarded-Proto") == "https":
+        app.config["SESSION_COOKIE_SECURE"] = True
+
+    open_endpoints = {"login", "static", "health"}
+    if request.endpoint in open_endpoints or (request.endpoint or "").startswith("static"):
+        return None
+    if logged_in():
+        return None
+    if request.path.startswith("/static/"):
+        return None
+    if request.path.startswith("/api/"):
+        return jsonify({"error": "No autorizado"}), 401
+    return redirect(url_for("login", next=request.path))
+
+
+@app.after_request
+def _security_headers(resp):
+    resp.headers["X-Frame-Options"] = "DENY"
+    resp.headers["X-Content-Type-Options"] = "nosniff"
+    resp.headers["Referrer-Policy"] = "same-origin"
+    resp.headers["Cache-Control"] = "no-store"
+    resp.headers["Permissions-Policy"] = "geolocation=(), microphone=(), camera=()"
+    return resp
+
+
+@app.get("/health")
+def health():
+    return jsonify({"ok": True})
+
+
+@app.route("/login", methods=["GET", "POST"])
+def login():
+    if logged_in():
+        return redirect(url_for("index"))
+
+    error = None
+    if request.method == "POST":
+        if is_locked():
+            mins = max(1, (lock_remaining() + 59) // 60)
+            error = f"Demasiados intentos. Espera ~{mins} min e inténtalo de nuevo."
+        else:
+            username = (request.form.get("username") or "").strip()
+            password = request.form.get("password") or ""
+            # Escapado básico de tamaño
+            if len(username) > 64 or len(password) > 256:
+                register_fail()
+                error = "Usuario o contraseña incorrectos."
+            elif verify_credentials(username, password):
+                clear_fails()
+                session.clear()
+                session["authed"] = True
+                session["user"] = username
+                session.permanent = True
+                nxt = request.args.get("next") or url_for("index")
+                if not nxt.startswith("/") or nxt.startswith("//"):
+                    nxt = url_for("index")
+                return redirect(nxt)
+            else:
+                register_fail()
+                error = "Usuario o contraseña incorrectos."
+
+    return render_template("login.html", error=error)
+
+
+@app.post("/logout")
+@login_required
+def logout():
+    session.clear()
+    return redirect(url_for("login"))
+
+
+@app.get("/")
+@login_required
 def index():
-    return render_template("index.html")
+    return render_template("index.html", username=session.get("user", ""))
 
 
 @app.get("/api/workbook")
+@login_required
 def api_get_workbook():
     return jsonify(load_workbook())
 
 
 @app.put("/api/workbook")
+@login_required
 def api_put_workbook():
     payload = request.get_json(force=True, silent=True) or {}
     sheets = payload.get("sheets") or {}
@@ -84,6 +204,7 @@ def api_put_workbook():
 
 
 @app.post("/api/sheets")
+@login_required
 def api_create_sheet():
     data = load_workbook()
     body = request.get_json(force=True, silent=True) or {}
@@ -107,6 +228,7 @@ def api_create_sheet():
 
 
 @app.patch("/api/sheets/<sheet_id>")
+@login_required
 def api_patch_sheet(sheet_id: str):
     data = load_workbook()
     if sheet_id not in data["sheets"]:
@@ -128,6 +250,7 @@ def api_patch_sheet(sheet_id: str):
 
 
 @app.delete("/api/sheets/<sheet_id>")
+@login_required
 def api_delete_sheet(sheet_id: str):
     data = load_workbook()
     if sheet_id not in data["sheets"]:
@@ -142,6 +265,7 @@ def api_delete_sheet(sheet_id: str):
 
 
 @app.post("/api/sheets/<sheet_id>/rows")
+@login_required
 def api_add_row(sheet_id: str):
     data = load_workbook()
     if sheet_id not in data["sheets"]:
@@ -166,6 +290,7 @@ def api_add_row(sheet_id: str):
 
 
 @app.patch("/api/sheets/<sheet_id>/rows/<int:row_index>")
+@login_required
 def api_patch_row(sheet_id: str, row_index: int):
     data = load_workbook()
     if sheet_id not in data["sheets"]:
@@ -192,6 +317,7 @@ def api_patch_row(sheet_id: str, row_index: int):
 
 
 @app.delete("/api/sheets/<sheet_id>/rows/<int:row_index>")
+@login_required
 def api_delete_row(sheet_id: str, row_index: int):
     data = load_workbook()
     if sheet_id not in data["sheets"]:
@@ -207,6 +333,7 @@ def api_delete_row(sheet_id: str, row_index: int):
 
 
 @app.post("/api/sheets/<sheet_id>/move")
+@login_required
 def api_move_row(sheet_id: str):
     data = load_workbook()
     if sheet_id not in data["sheets"]:
@@ -224,6 +351,7 @@ def api_move_row(sheet_id: str):
 
 
 @app.post("/api/sheets/<sheet_id>/recompute")
+@login_required
 def api_recompute(sheet_id: str):
     data = load_workbook()
     if sheet_id not in data["sheets"]:
@@ -234,6 +362,7 @@ def api_recompute(sheet_id: str):
 
 
 @app.post("/api/active/<sheet_id>")
+@login_required
 def api_set_active(sheet_id: str):
     data = load_workbook()
     if sheet_id not in data["sheets"]:
@@ -243,9 +372,9 @@ def api_set_active(sheet_id: str):
     return jsonify(data)
 
 
-# Entrada WSGI para PythonAnywhere (también sirve `python app.py`)
+# Entrada WSGI para PythonAnywhere
 application = app
 
 if __name__ == "__main__":
     ensure_data()
-    app.run(host="0.0.0.0", port=5000, debug=True)
+    app.run(host="0.0.0.0", port=5000, debug=False)

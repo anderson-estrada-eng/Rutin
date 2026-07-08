@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="robots" content="noindex, nofollow" />
+  <title>Entrar · Rutina</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
+</head>
+<body class="login-page">
+  <main class="login-shell">
+    <form class="login-card" method="post" action="{{ url_for('login') }}" autocomplete="off">
+      <div class="login-brand">
+        <span class="brand-mark" aria-hidden="true"></span>
+        <h1>Rutina</h1>
+        <p>Acceso privado · un solo usuario</p>
+      </div>
+
+      {% if error %}
+      <div class="login-error" role="alert">{{ error }}</div>
+      {% endif %}
+
+      <label class="field">
+        <span>Nombre</span>
+        <input type="text" name="username" required maxlength="64" autocomplete="username" autofocus />
+      </label>
+      <label class="field">
+        <span>Contraseña</span>
+        <input type="password" name="password" required maxlength="256" autocomplete="current-password" />
+      </label>
+      <button type="submit" class="btn primary login-submit">Entrar</button>
+    </form>
+  </main>
+</body>
+</html>

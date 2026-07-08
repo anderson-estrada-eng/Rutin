@@ -5,6 +5,7 @@ __pycache__/
 venv/
 env/
 .env
+secrets/flask_secret.txt
 *.log
 .DS_Store
 Thumbs.db

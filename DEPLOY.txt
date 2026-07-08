@@ -67,12 +67,17 @@ En Bash de PythonAnywhere:
 Luego Web → Reload.
 
 
-D) SI ALGO FALLA
-----------------
-- Error en el log: Web → Log files → Error log
-- "ModuleNotFoundError: No module named 'flask'"
-  → el Virtualenv no está bien puesto, o no hiciste pip install
-- Página en blanco / 500
-  → revisa que el WSGI tenga from app import application
-  → y que path sea /home/TU_PA_USER/Rutin (carpeta donde está app.py)
+E) LOGIN (importante)
+---------------------
+- Usuario: andy
+- La contraseña NO está en el código ni en GitHub; solo un hash scrypt
+  en secrets/auth.json (incluido en el repo).
+- Al primer arranque se crea secrets/flask_secret.txt en el servidor
+  (no se sube a GitHub).
+
+Si al entrar ves error de auth.json:
+  comprueba que exista /home/TU_PA_USER/Rutin/secrets/auth.json
+
+Cambio de contraseña más adelante:
+  regenera secrets/auth.json con un script scrypt y haz pull / sube el archivo.
 ================================================================================

@@ -30,8 +30,13 @@
   async function api(path, opts = {}) {
     const res = await fetch(path, {
       headers: { "Content-Type": "application/json", ...(opts.headers || {}) },
+      credentials: "same-origin",
       ...opts,
     });
+    if (res.status === 401) {
+      window.location.href = "/login";
+      throw new Error("Sesión expirada");
+    }
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(data.error || res.statusText);
     return data;
@@ -184,20 +189,42 @@
         name.focus();
         name.select();
       });
-      name.addEventListener("blur", () => {
+      name.addEventListener("blur", async () => {
         name.readOnly = true;
         const next = name.value.trim() || sh.name;
-        if (next !== sh.name) {
-          sh.name = next;
-          scheduleSave();
+        if (next === sh.name) {
+          renderTabs();
+          return;
+        }
+        sh.name = next;
+        try {
+          await api(`/api/sheets/${id}`, {
+            method: "PATCH",
+            body: JSON.stringify({ name: next, rows: sh.rows }),
+          });
+          toast("Hoja renombrada");
+        } catch (err) {
+          toast(err.message);
         }
         renderTabs();
       });
       name.addEventListener("keydown", (e) => {
         if (e.key === "Enter") name.blur();
+        if (e.key === "F2") {
+          e.preventDefault();
+          name.readOnly = false;
+          name.focus();
+          name.select();
+        }
         e.stopPropagation();
       });
-      name.addEventListener("click", (e) => e.stopPropagation());
+      name.addEventListener("click", (e) => {
+        e.stopPropagation();
+        // un clic en el nombre de la pestaña activa también permite editar
+        if (id === activeId && name.readOnly) {
+          /* keep readOnly until dblclick / F2 */
+        }
+      });
 
       const close = document.createElement("span");
       close.className = "tab-close";
