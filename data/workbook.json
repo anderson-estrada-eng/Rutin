@@ -1,0 +1,29 @@
+{
+  "active_sheet_id": "dia",
+  "sheets": {
+    "dia": {
+      "name": "Rutina del día",
+      "day_start": "6:00 AM",
+      "day_end": "4:00 PM",
+      "rows": [
+        { "task": "Despertar / higiene", "timed": true, "duration": 30, "notes": "" },
+        { "task": "Desayuno", "timed": true, "duration": 30, "notes": "" },
+        { "task": "Bloque de estudio / trabajo", "timed": true, "duration": 120, "notes": "" },
+        { "task": "Descanso / snack", "timed": true, "duration": 20, "notes": "" },
+        { "task": "Segundo bloque", "timed": true, "duration": 90, "notes": "" },
+        { "task": "Comida", "timed": true, "duration": 45, "notes": "" },
+        { "task": "Notas / ideas sueltas", "timed": false, "duration": 0, "notes": "Sin horario fijo" }
+      ]
+    },
+    "semana": {
+      "name": "Semana",
+      "day_start": "6:00 AM",
+      "day_end": "4:00 PM",
+      "rows": [
+        { "task": "Lunes — planificar", "timed": true, "duration": 45, "notes": "" },
+        { "task": "Martes — estudio", "timed": true, "duration": 90, "notes": "" },
+        { "task": "Miércoles — ejercicio", "timed": true, "duration": 60, "notes": "" }
+      ]
+    }
+  }
+}

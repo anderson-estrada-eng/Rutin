@@ -1,0 +1,77 @@
+================================================================================
+RUTINA — Pasos GitHub + PythonAnywhere
+================================================================================
+
+A) EN TU PC (subir a GitHub)
+----------------------------
+1. Crea un repo PUBLICO en GitHub (ej. "Rutina"). No marques "Add README"
+   si ya tienes archivos locales.
+
+2. En la carpeta del proyecto (PowerShell):
+
+   git init
+   git add .
+   git commit -m "Rutina: hoja de horarios web"
+   git branch -M main
+   git remote add origin https://github.com/TU_USUARIO/Rutina.git
+   git push -u origin main
+
+3. Cada vez que cambies algo en Cursor:
+
+   git add .
+   git commit -m "descripcion corta"
+   git push origin main
+
+
+B) EN PYTHONANYWHERE (primera vez)
+----------------------------------
+1. Entra a https://www.pythonanywhere.com y crea cuenta (Beginner gratis ok).
+
+2. Consola Bash:
+
+   cd ~
+   git clone https://github.com/TU_USUARIO/Rutina.git
+   cd Rutina
+   python3.10 -m venv ~/.virtualenvs/rutina
+   source ~/.virtualenvs/rutina/bin/activate
+   pip install -r requirements.txt
+
+3. Pestaña Web → Add a new web app → Manual configuration → Python 3.10.
+
+4. Virtualenv: pon la ruta
+   /home/TU_USUARIO/.virtualenvs/rutina
+
+5. WSGI configuration file → edita y deja algo como:
+
+   import sys
+   path = "/home/TU_USUARIO/Rutina"
+   if path not in sys.path:
+       sys.path.insert(0, path)
+   from app import application
+
+   (Cambia TU_USUARIO por tu usuario real de PythonAnywhere.)
+
+6. Guarda → botón verde Reload.
+
+7. Abre: https://TU_USUARIO.pythonanywhere.com
+
+
+C) ACTUALIZAR DESPUÉS DE UN git push
+------------------------------------
+En la consola Bash de PythonAnywhere:
+
+   cd ~/Rutina
+   git pull origin main
+   source ~/.virtualenvs/rutina/bin/activate
+   pip install -r requirements.txt   # solo si cambió requirements.txt
+
+Luego en Web → Reload.
+
+
+D) NOTAS
+--------
+- En plan gratis, el sitio se duerme si nadie lo visita; un refresh lo despierta.
+- Los datos se guardan en data/workbook.json dentro del servidor.
+- Si quieres datos frescos del repo, haz pull; si editaste en la web, ese JSON
+  en el servidor es el que manda (no se pisa solo con pull si no hay conflicto).
+================================================================================
