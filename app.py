@@ -36,6 +36,12 @@ from schedule import (
     parse_duration,
     recompute_sheet,
 )
+from workbook_layout import (
+    append_sheet_to_layout,
+    create_folder,
+    ensure_layout,
+    remove_sheet_from_layout,
+)
 
 BASE_DIR = Path(__file__).resolve().parent
 DATA_DIR = BASE_DIR / "data"
@@ -66,10 +72,8 @@ def ensure_data() -> None:
     save_workbook(default_workbook())
 
 
-def load_workbook() -> dict:
-    ensure_data()
-    with DATA_FILE.open("r", encoding="utf-8") as f:
-        data = json.load(f)
+def normalize_workbook(data: dict) -> dict:
+    data = ensure_layout(data)
     sheets = data.get("sheets") or {}
     for sid, sheet in list(sheets.items()):
         sheets[sid] = recompute_sheet(sheet)
@@ -79,8 +83,16 @@ def load_workbook() -> dict:
     return data
 
 
+def load_workbook() -> dict:
+    ensure_data()
+    with DATA_FILE.open("r", encoding="utf-8") as f:
+        data = json.load(f)
+    return normalize_workbook(data)
+
+
 def save_workbook(data: dict) -> None:
     DATA_DIR.mkdir(parents=True, exist_ok=True)
+    data = normalize_workbook(data)
     tmp = DATA_FILE.with_suffix(".json.tmp")
     with tmp.open("w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
@@ -229,6 +241,7 @@ def api_create_sheet():
     sheet = recompute_sheet(sheet)
     data["sheets"][sid] = sheet
     data["active_sheet_id"] = sid
+    data["layout"] = append_sheet_to_layout(data.get("layout") or [], sid)
     save_workbook(data)
     return jsonify({"id": sid, "workbook": data})
 
@@ -264,6 +277,7 @@ def api_delete_sheet(sheet_id: str):
     if len(data["sheets"]) <= 1:
         return jsonify({"error": "Debes tener al menos una hoja"}), 400
     del data["sheets"][sheet_id]
+    data["layout"] = remove_sheet_from_layout(data.get("layout") or [], sheet_id)
     if data.get("active_sheet_id") == sheet_id:
         data["active_sheet_id"] = next(iter(data["sheets"]))
     save_workbook(data)
@@ -365,6 +379,29 @@ def api_recompute(sheet_id: str):
     data["sheets"][sheet_id] = recompute_sheet(data["sheets"][sheet_id])
     save_workbook(data)
     return jsonify(data["sheets"][sheet_id])
+
+
+@app.put("/api/layout")
+@login_required
+def api_put_layout():
+    data = load_workbook()
+    body = request.get_json(force=True, silent=True) or {}
+    if "layout" not in body:
+        return jsonify({"error": "Falta layout"}), 400
+    data["layout"] = body["layout"]
+    save_workbook(data)
+    return jsonify(data)
+
+
+@app.post("/api/folders")
+@login_required
+def api_create_folder():
+    data = load_workbook()
+    body = request.get_json(force=True, silent=True) or {}
+    name = (body.get("name") or "Carpeta").strip() or "Carpeta"
+    data["layout"], folder_id = create_folder(data.get("layout") or [], name)
+    save_workbook(data)
+    return jsonify({"id": folder_id, "workbook": data})
 
 
 @app.post("/api/active/<sheet_id>")

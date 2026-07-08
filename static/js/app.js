@@ -26,10 +26,19 @@
     popHint: $("#cell-popover-hint"),
     popSave: $("#cell-popover-save"),
     popCancel: $("#cell-popover-cancel"),
+    linkPicker: $("#link-picker"),
+    linkPickerTree: $("#link-picker-tree"),
+    linkPickerSearch: $("#link-picker-search"),
+    linkPickerUrl: $("#link-picker-url"),
+    linkPickerClose: $("#link-picker-close"),
+    linkPickerUrlApply: $("#link-picker-url-apply"),
+    linkPickerClear: $("#link-picker-clear"),
   };
 
   let popoverState = null; // { input, onCommit, hideTimer }
   let popoverPinned = false;
+  let linkPickerState = null; // { anchor, row, onCommit }
+  let pickerFoldersOpen = new Set();
 
   function toast(msg) {
     els.toast.textContent = msg;
@@ -148,6 +157,178 @@
     }
   }
 
+  function linkDisplayText(raw) {
+    const info = parseLink(raw);
+    if (info.kind === "sheet") return "📄 " + (info.label || info.value);
+    if (info.kind === "external") return raw;
+    if (info.kind === "missing" && raw) return raw;
+    return "";
+  }
+
+  function ensureLayoutLocal() {
+    if (!workbook) return;
+    if (workbook.layout?.length) return;
+    workbook.layout = Object.keys(workbook.sheets || {}).map((id) => ({
+      type: "sheet",
+      id,
+    }));
+  }
+
+  function findFolderInLayout(items, folderId) {
+    for (const item of items || []) {
+      if (item.type === "folder" && item.id === folderId) return item;
+      if (item.type === "folder") {
+        const nested = findFolderInLayout(item.items, folderId);
+        if (nested) return nested;
+      }
+    }
+    return null;
+  }
+
+  function removeSheetFromLayoutItems(items, sheetId) {
+    const out = [];
+    for (const item of items || []) {
+      if (item.type === "sheet") {
+        if (item.id !== sheetId) out.push(item);
+      } else if (item.type === "folder") {
+        item.items = removeSheetFromLayoutItems(item.items || [], sheetId);
+        out.push(item);
+      }
+    }
+    return out;
+  }
+
+  function removeSheetFromLayout(sheetId) {
+    workbook.layout = removeSheetFromLayoutItems(workbook.layout || [], sheetId);
+  }
+
+  function moveSheetToFolder(sheetId, folderId) {
+    if (!sheetId || sheetId === folderId) return;
+    removeSheetFromLayout(sheetId);
+    const folder = findFolderInLayout(workbook.layout, folderId);
+    if (folder) {
+      folder.items = folder.items || [];
+      folder.items.push({ type: "sheet", id: sheetId });
+      folder.expanded = true;
+      scheduleSave();
+      renderTabs();
+      toast("Hoja movida a carpeta");
+    }
+  }
+
+  function placeFloating(el, anchor) {
+    const rect = anchor.getBoundingClientRect();
+    el.classList.remove("hidden");
+    const pad = 8;
+    let top = rect.bottom + pad;
+    let left = rect.left;
+    const pw = el.offsetWidth || 320;
+    const ph = el.offsetHeight || 200;
+    if (left + pw > window.innerWidth - 12) left = window.innerWidth - pw - 12;
+    if (left < 12) left = 12;
+    if (top + ph > window.innerHeight - 12) top = rect.top - ph - pad;
+    if (top < 12) top = 12;
+    el.style.top = `${Math.round(top)}px`;
+    el.style.left = `${Math.round(left)}px`;
+  }
+
+  function hideLinkPicker() {
+    linkPickerState = null;
+    pickerFoldersOpen.clear();
+    els.linkPicker.classList.add("hidden");
+    els.linkPicker.setAttribute("aria-hidden", "true");
+    els.linkPickerSearch.value = "";
+    els.linkPickerUrl.value = "";
+  }
+
+  function commitLinkValue(value) {
+    if (!linkPickerState) return;
+    const v = (value || "").trim();
+    if (linkPickerState.row) linkPickerState.row.link = v;
+    if (linkPickerState.onCommit) linkPickerState.onCommit(v);
+    scheduleSave();
+    hideLinkPicker();
+    renderRows();
+  }
+
+  function selectSheetForLink(sheetId) {
+    commitLinkValue(`sheet:${sheetId}`);
+  }
+
+  function renderLinkPickerTree() {
+    const q = (els.linkPickerSearch.value || "").trim().toLowerCase();
+    els.linkPickerTree.innerHTML = "";
+    ensureLayoutLocal();
+
+    const renderItems = (items, depth = 0) => {
+      for (const item of items || []) {
+        if (item.type === "folder") {
+          const name = item.name || "Carpeta";
+          const folderMatch = !q || name.toLowerCase().includes(q);
+          const childSheets = (item.items || []).filter((c) => c.type === "sheet");
+          const anyChildMatch =
+            !q ||
+            childSheets.some((c) => {
+              const sh = workbook.sheets[c.id];
+              return sh && (sh.name || c.id).toLowerCase().includes(q);
+            });
+          if (!folderMatch && !anyChildMatch) continue;
+
+          const open = pickerFoldersOpen.has(item.id) || !!q;
+          const row = document.createElement("button");
+          row.type = "button";
+          row.className = "link-picker-item is-folder";
+          row.innerHTML = `<span class="chev">${open ? "▼" : "▶"}</span><span>📁 ${name}</span>`;
+          row.addEventListener("click", (e) => {
+            e.stopPropagation();
+            if (pickerFoldersOpen.has(item.id)) pickerFoldersOpen.delete(item.id);
+            else pickerFoldersOpen.add(item.id);
+            renderLinkPickerTree();
+          });
+          els.linkPickerTree.appendChild(row);
+
+          if (open) renderItems(item.items, depth + 1);
+        } else if (item.type === "sheet") {
+          const id = item.id;
+          if (id === activeId) continue;
+          const sh = workbook.sheets[id];
+          if (!sh) continue;
+          const label = sh.name || id;
+          if (q && !label.toLowerCase().includes(q)) continue;
+          const btn = document.createElement("button");
+          btn.type = "button";
+          btn.className = "link-picker-item is-sheet" + (depth ? " deep" : "");
+          btn.textContent = "📄 " + label;
+          btn.addEventListener("click", () => selectSheetForLink(id));
+          els.linkPickerTree.appendChild(btn);
+        }
+      }
+    };
+
+    renderItems(workbook.layout);
+    if (!els.linkPickerTree.children.length) {
+      const empty = document.createElement("p");
+      empty.className = "cell-popover-hint";
+      empty.textContent = q ? "Sin resultados" : "No hay otras hojas";
+      els.linkPickerTree.appendChild(empty);
+    }
+  }
+
+  function openLinkPicker(anchor, row, onCommit) {
+    hidePopover(true);
+    linkPickerState = { anchor, row, onCommit };
+    pickerFoldersOpen.clear();
+    for (const item of workbook.layout || []) {
+      if (item.type === "folder" && item.expanded) pickerFoldersOpen.add(item.id);
+    }
+    const info = parseLink(row?.link);
+    els.linkPickerUrl.value = info.kind === "external" ? row.link : "";
+    renderLinkPickerTree();
+    placeFloating(els.linkPicker, anchor);
+    els.linkPicker.setAttribute("aria-hidden", "false");
+    els.linkPickerSearch.focus();
+  }
+
   function scheduleSave() {
     dirty = true;
     clearTimeout(saveTimer);
@@ -181,57 +362,126 @@
     els.overflow.classList.toggle("hidden", !s.overflow);
   }
 
+  function buildSheetTab(sheetId, { nested = false } = {}) {
+    const sh = workbook.sheets[sheetId];
+    if (!sh) return document.createDocumentFragment();
+
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "tab" + (sheetId === activeId ? " active" : "") + (nested ? " tab-in-folder" : "");
+    btn.dataset.id = sheetId;
+    btn.draggable = true;
+    btn.title = nested ? "Abrir hoja (arrastra a una carpeta)" : "Abrir hoja · arrastra a carpeta";
+
+    btn.addEventListener("dragstart", (e) => {
+      e.dataTransfer.effectAllowed = "move";
+      e.dataTransfer.setData("text/sheet-id", sheetId);
+      btn.classList.add("dragging");
+    });
+    btn.addEventListener("dragend", () => btn.classList.remove("dragging"));
+
+    const label = document.createElement("span");
+    label.className = "tab-label";
+    label.textContent = sh.name || sheetId;
+
+    const renameBtn = document.createElement("span");
+    renameBtn.className = "tab-rename";
+    renameBtn.textContent = "✎";
+    renameBtn.title = "Renombrar hoja";
+    renameBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      startRenameTab(sheetId, sh, btn, label);
+    });
+
+    const close = document.createElement("span");
+    close.className = "tab-close";
+    close.textContent = "×";
+    close.title = "Eliminar hoja";
+    close.addEventListener("click", async (e) => {
+      e.stopPropagation();
+      if (Object.keys(workbook.sheets).length <= 1) {
+        toast("Debes tener al menos una hoja");
+        return;
+      }
+      if (!confirm(`¿Eliminar la hoja "${sh.name}"?`)) return;
+      try {
+        workbook = await api(`/api/sheets/${sheetId}`, { method: "DELETE" });
+        activeId = workbook.active_sheet_id;
+        render();
+        toast("Hoja eliminada");
+      } catch (err) {
+        toast(err.message);
+      }
+    });
+
+    btn.append(label, renameBtn, close);
+    btn.addEventListener("click", () => goToSheet(sheetId));
+    btn.addEventListener("dblclick", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      startRenameTab(sheetId, sh, btn, label);
+    });
+    return btn;
+  }
+
+  function buildFolderTab(folder) {
+    const wrap = document.createElement("div");
+    wrap.className = "tab-folder-wrap" + (folder.expanded ? " expanded" : "");
+    wrap.dataset.folderId = folder.id;
+
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "tab tab-folder-btn" + (folder.expanded ? " expanded" : "");
+    btn.innerHTML = `📁 <span class="tab-label">${folder.name || "Carpeta"}</span>`;
+    btn.title = "Clic para desplegar · suelta una hoja aquí";
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      folder.expanded = !folder.expanded;
+      scheduleSave();
+      renderTabs();
+    });
+
+    const onDrag = (e) => {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = "move";
+      wrap.classList.add("drag-over");
+    };
+    wrap.addEventListener("dragover", onDrag);
+    btn.addEventListener("dragover", onDrag);
+    const leave = () => wrap.classList.remove("drag-over");
+    wrap.addEventListener("dragleave", leave);
+    const onDrop = (e) => {
+      e.preventDefault();
+      wrap.classList.remove("drag-over");
+      const sid = e.dataTransfer.getData("text/sheet-id");
+      if (sid && sid !== activeId) moveSheetToFolder(sid, folder.id);
+    };
+    wrap.addEventListener("drop", onDrop);
+    btn.addEventListener("drop", onDrop);
+
+    const children = document.createElement("div");
+    children.className = "tab-folder-children";
+    for (const child of folder.items || []) {
+      if (child.type === "sheet") {
+        const tab = buildSheetTab(child.id, { nested: true });
+        if (tab instanceof HTMLElement) children.appendChild(tab);
+      }
+    }
+
+    wrap.append(btn, children);
+    return wrap;
+  }
+
   function renderTabs() {
     els.tabs.innerHTML = "";
-    for (const [id, sh] of Object.entries(workbook.sheets)) {
-      const btn = document.createElement("button");
-      btn.type = "button";
-      btn.className = "tab" + (id === activeId ? " active" : "");
-      btn.dataset.id = id;
-      btn.title = "Abrir hoja";
-
-      const label = document.createElement("span");
-      label.className = "tab-label";
-      label.textContent = sh.name || id;
-
-      const renameBtn = document.createElement("span");
-      renameBtn.className = "tab-rename";
-      renameBtn.textContent = "✎";
-      renameBtn.title = "Renombrar hoja";
-      renameBtn.addEventListener("click", (e) => {
-        e.stopPropagation();
-        startRenameTab(id, sh, btn, label);
-      });
-
-      const close = document.createElement("span");
-      close.className = "tab-close";
-      close.textContent = "×";
-      close.title = "Eliminar hoja";
-      close.addEventListener("click", async (e) => {
-        e.stopPropagation();
-        if (Object.keys(workbook.sheets).length <= 1) {
-          toast("Debes tener al menos una hoja");
-          return;
-        }
-        if (!confirm(`¿Eliminar la hoja "${sh.name}"?`)) return;
-        try {
-          workbook = await api(`/api/sheets/${id}`, { method: "DELETE" });
-          activeId = workbook.active_sheet_id;
-          render();
-          toast("Hoja eliminada");
-        } catch (err) {
-          toast(err.message);
-        }
-      });
-
-      btn.append(label, renameBtn, close);
-      btn.addEventListener("click", () => goToSheet(id));
-      btn.addEventListener("dblclick", (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        startRenameTab(id, sh, btn, label);
-      });
-      els.tabs.appendChild(btn);
+    ensureLayoutLocal();
+    for (const item of workbook.layout || []) {
+      if (item.type === "sheet") {
+        const tab = buildSheetTab(item.id);
+        if (tab instanceof HTMLElement) els.tabs.appendChild(tab);
+      } else if (item.type === "folder") {
+        els.tabs.appendChild(buildFolderTab(item));
+      }
     }
   }
 
@@ -511,14 +761,23 @@
       const linkWrap = document.createElement("div");
       linkWrap.className = "link-cell";
       if (row.link == null) row.link = "";
-      const linkInput = makeInput(row.link, "", (v) => {
-        row.link = v.trim();
-        scheduleSave();
-        refreshLinkButton(goBtn, row.link);
-      }, "Vínculo");
-      linkInput.placeholder = "sheet:semana o https://...";
-      linkInput.title =
-        "Hoja interna: sheet:id o nombre de pestaña. Externo/documento: https://... o archivo.pdf";
+
+      const linkField = document.createElement("button");
+      linkField.type = "button";
+      linkField.className = "link-field";
+      const info = parseLink(row.link);
+      linkField.classList.toggle("is-sheet", info.kind === "sheet");
+      linkField.classList.toggle("is-empty", info.kind === "empty");
+      linkField.textContent = linkDisplayText(row.link) || "Elegir hoja o URL…";
+      linkField.title = "Clic para elegir hoja o URL";
+      linkField.addEventListener("click", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        openLinkPicker(linkField, row, (v) => {
+          row.link = v;
+        });
+      });
+
       const goBtn = document.createElement("button");
       goBtn.type = "button";
       goBtn.className = "link-go";
@@ -527,9 +786,9 @@
       goBtn.addEventListener("click", (e) => {
         e.preventDefault();
         e.stopPropagation();
-        openLink(row.link || linkInput.value);
+        openLink(row.link);
       });
-      linkWrap.append(linkInput, goBtn);
+      linkWrap.append(linkField, goBtn);
       tdLink.appendChild(linkWrap);
 
       const tdTimed = document.createElement("td");
@@ -644,11 +903,46 @@
   async function boot() {
     workbook = await api("/api/workbook");
     activeId = workbook.active_sheet_id;
+    ensureLayoutLocal();
     render();
   }
 
   $("#btn-save").addEventListener("click", () => saveAll());
   $("#btn-help").addEventListener("click", () => els.help.showModal());
+
+  $("#btn-add-folder").addEventListener("click", async () => {
+    const name = prompt("Nombre de la carpeta:", "Carpeta");
+    if (!name) return;
+    try {
+      const res = await api("/api/folders", {
+        method: "POST",
+        body: JSON.stringify({ name }),
+      });
+      workbook = res.workbook;
+      render();
+      toast("Carpeta creada");
+    } catch (err) {
+      toast(err.message);
+    }
+  });
+
+  els.linkPickerClose.addEventListener("click", () => hideLinkPicker());
+  els.linkPickerSearch.addEventListener("input", () => renderLinkPickerTree());
+  els.linkPickerUrlApply.addEventListener("click", () => {
+    const url = (els.linkPickerUrl.value || "").trim();
+    if (!url) {
+      toast("Escribe una URL");
+      return;
+    }
+    commitLinkValue(url);
+  });
+  els.linkPickerClear.addEventListener("click", () => commitLinkValue(""));
+  document.addEventListener("mousedown", (e) => {
+    if (!linkPickerState) return;
+    if (els.linkPicker.contains(e.target)) return;
+    if (linkPickerState.anchor?.contains(e.target)) return;
+    hideLinkPicker();
+  });
 
   $("#btn-add-row").addEventListener("click", async () => {
     try {

@@ -1,5 +1,9 @@
 {
   "active_sheet_id": "dia",
+  "layout": [
+    { "type": "sheet", "id": "dia" },
+    { "type": "sheet", "id": "semana" }
+  ],
   "sheets": {
     "dia": {
       "name": "Rutina del día",

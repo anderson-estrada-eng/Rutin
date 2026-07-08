@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=3" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=5" />
 </head>
 <body>
   <div class="app">
@@ -74,12 +74,13 @@
       </table>
       <div class="grid-footer">
         <button type="button" class="btn ghost" id="btn-add-row">+ Añadir fila</button>
-        <p class="hint">Clic en una pestaña para abrirla. ✎ o doble clic para renombrar. + crea hoja vacía. Arrastra ≡ para reordenar filas.</p>
+        <p class="hint">Vínculo: clic para elegir hoja. 📁 carpetas · arrastra pestañas a una carpeta. Clic en carpeta para desplegar.</p>
       </div>
     </div>
 
     <nav class="tabs" id="tabs" aria-label="Hojas">
       <div class="tabs-list" id="tabs-list"></div>
+      <button type="button" class="btn tab-add" id="btn-add-folder" title="Nueva carpeta">📁</button>
       <button type="button" class="btn tab-add" id="btn-add-sheet" title="Nueva hoja">+</button>
     </nav>
   </div>
@@ -93,10 +94,8 @@
         <li><strong>Reordenar</strong>: arrastra la fila; la duración se mueve y las horas de abajo se ajustan solas.</li>
         <li><strong>Límites</strong>: empieza a las <strong>6:00 AM</strong>; no debería pasar de las <strong>4:00 PM</strong>. La siguiente madrugada referencia es <strong>7:00 AM</strong>.</li>
         <li><strong>Pestañas</strong>: clic para abrir; <strong>✎</strong> o doble clic para renombrar; <strong>+</strong> añade hoja vacía; × elimina.</li>
-        <li><strong>Vínculo</strong>:
-          <code>sheet:semana</code> o el nombre de la hoja → cambia a esa pestaña aquí mismo;
-          <code>https://...</code> o un documento (PDF, Drive, etc.) → se abre en otra pestaña del navegador.
-        </li>
+        <li><strong>Vínculo</strong>: clic en la celda → elige una hoja (sin escribir <code>sheet:</code>) o pega una URL externa.</li>
+        <li><strong>Carpetas</strong>: botón 📁 para agrupar hojas; arrastra una pestaña sobre una carpeta; clic en la carpeta para desplegar.</li>
         <li><strong>Texto largo</strong>: si la celda corta el texto, al pasar el mouse ves el completo; clic en el globo o en la celda para editarlo ahí.</li>
         <li><strong>Acceso</strong>: la app pide usuario y contraseña; sin sesión no se puede ver ni la API.</li>
       </ul>
@@ -117,6 +116,23 @@
     <p class="cell-popover-hint" id="cell-popover-hint">Clic para editar aquí</p>
   </div>
 
-  <script src="{{ url_for('static', filename='js/app.js') }}?v=3"></script>
+  <div id="link-picker" class="link-picker hidden" role="dialog" aria-hidden="true">
+    <div class="link-picker-head">
+      <strong>Elegir vínculo</strong>
+      <button type="button" class="btn ghost link-picker-close" id="link-picker-close" title="Cerrar">✕</button>
+    </div>
+    <input type="search" id="link-picker-search" class="link-picker-search" placeholder="Buscar hoja o carpeta…" autocomplete="off" />
+    <div id="link-picker-tree" class="link-picker-tree"></div>
+    <div class="link-picker-external">
+      <label class="field">
+        <span>URL externa</span>
+        <input type="text" id="link-picker-url" placeholder="https://…" />
+      </label>
+      <button type="button" class="btn ghost" id="link-picker-url-apply">Usar URL</button>
+    </div>
+    <button type="button" class="btn ghost link-picker-clear" id="link-picker-clear">Quitar vínculo</button>
+  </div>
+
+  <script src="{{ url_for('static', filename='js/app.js') }}?v=5"></script>
 </body>
 </html>

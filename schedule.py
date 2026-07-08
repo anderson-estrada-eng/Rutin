@@ -280,8 +280,14 @@ def starter_sheet(name: str = "Rutina del día") -> dict[str, Any]:
 
 
 def default_workbook() -> dict[str, Any]:
-    return {
+    from workbook_layout import ensure_layout
+
+    wb = {
         "active_sheet_id": "dia",
+        "layout": [
+            {"type": "sheet", "id": "dia"},
+            {"type": "sheet", "id": "semana"},
+        ],
         "sheets": {
             "dia": starter_sheet("Rutina del día"),
             "semana": recompute_sheet(
@@ -304,3 +310,4 @@ def default_workbook() -> dict[str, Any]:
             ),
         },
     }
+    return ensure_layout(wb)
