@@ -245,6 +245,19 @@ def new_row(
 
 
 def blank_sheet(name: str = "Nueva hoja") -> dict[str, Any]:
+    """Hoja nueva vacía (sin filas de ejemplo)."""
+    return recompute_sheet(
+        {
+            "name": name,
+            "day_start": "6:00 AM",
+            "day_end": "4:00 PM",
+            "rows": [],
+        }
+    )
+
+
+def starter_sheet(name: str = "Rutina del día") -> dict[str, Any]:
+    """Plantilla inicial solo para el workbook por defecto."""
     return recompute_sheet(
         {
             "name": name,
@@ -270,7 +283,7 @@ def default_workbook() -> dict[str, Any]:
     return {
         "active_sheet_id": "dia",
         "sheets": {
-            "dia": blank_sheet("Rutina del día"),
+            "dia": starter_sheet("Rutina del día"),
             "semana": recompute_sheet(
                 {
                     "name": "Semana",

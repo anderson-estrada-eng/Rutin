@@ -480,7 +480,7 @@ body {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 0.45rem 0.75rem;
+  padding: 0.45rem 0.55rem 0.45rem 0.75rem;
   border-radius: 8px 8px 0 0;
   border: 1px solid var(--line);
   border-bottom: none;
@@ -498,26 +498,49 @@ body {
   box-shadow: inset 0 2px 0 var(--accent);
 }
 
-.tab-name {
-  border: none;
-  background: transparent;
-  color: inherit;
-  font: inherit;
-  width: 8ch;
-  min-width: 6ch;
+.tab-label {
   max-width: 16ch;
-  padding: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.tab-name {
+  border: 1px solid var(--accent);
+  background: var(--cell);
+  color: var(--text);
+  font: inherit;
+  font-weight: 600;
+  width: 12ch;
+  min-width: 8ch;
+  max-width: 18ch;
+  padding: 0.1rem 0.35rem;
+  border-radius: 6px;
   outline: none;
 }
 
+.tab-rename,
 .tab-close {
   border: none;
   background: transparent;
   color: var(--muted);
   cursor: pointer;
-  font-size: 0.95rem;
+  font-size: 0.9rem;
   line-height: 1;
-  padding: 0 2px;
+  padding: 0 3px;
+  opacity: 0.55;
+}
+
+.tab:hover .tab-rename,
+.tab:hover .tab-close,
+.tab.active .tab-rename,
+.tab.active .tab-close {
+  opacity: 1;
+}
+
+.tab-rename:hover {
+  color: var(--accent);
 }
 
 .tab-close:hover {

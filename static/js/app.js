@@ -177,59 +177,25 @@
       btn.type = "button";
       btn.className = "tab" + (id === activeId ? " active" : "");
       btn.dataset.id = id;
+      btn.title = "Abrir hoja";
 
-      const name = document.createElement("input");
-      name.className = "tab-name";
-      name.value = sh.name || id;
-      name.title = "Doble clic para renombrar";
-      name.readOnly = true;
-      name.addEventListener("dblclick", (e) => {
+      const label = document.createElement("span");
+      label.className = "tab-label";
+      label.textContent = sh.name || id;
+
+      const renameBtn = document.createElement("span");
+      renameBtn.className = "tab-rename";
+      renameBtn.textContent = "✎";
+      renameBtn.title = "Renombrar hoja";
+      renameBtn.addEventListener("click", (e) => {
         e.stopPropagation();
-        name.readOnly = false;
-        name.focus();
-        name.select();
-      });
-      name.addEventListener("blur", async () => {
-        name.readOnly = true;
-        const next = name.value.trim() || sh.name;
-        if (next === sh.name) {
-          renderTabs();
-          return;
-        }
-        sh.name = next;
-        try {
-          await api(`/api/sheets/${id}`, {
-            method: "PATCH",
-            body: JSON.stringify({ name: next, rows: sh.rows }),
-          });
-          toast("Hoja renombrada");
-        } catch (err) {
-          toast(err.message);
-        }
-        renderTabs();
-      });
-      name.addEventListener("keydown", (e) => {
-        if (e.key === "Enter") name.blur();
-        if (e.key === "F2") {
-          e.preventDefault();
-          name.readOnly = false;
-          name.focus();
-          name.select();
-        }
-        e.stopPropagation();
-      });
-      name.addEventListener("click", (e) => {
-        e.stopPropagation();
-        // un clic en el nombre de la pestaña activa también permite editar
-        if (id === activeId && name.readOnly) {
-          /* keep readOnly until dblclick / F2 */
-        }
+        startRenameTab(id, sh, btn, label);
       });
 
       const close = document.createElement("span");
       close.className = "tab-close";
       close.textContent = "×";
-      close.title = "Cerrar hoja";
+      close.title = "Eliminar hoja";
       close.addEventListener("click", async (e) => {
         e.stopPropagation();
         if (Object.keys(workbook.sheets).length <= 1) {
@@ -247,11 +213,62 @@
         }
       });
 
-      btn.appendChild(name);
-      btn.appendChild(close);
+      btn.append(label, renameBtn, close);
       btn.addEventListener("click", () => goToSheet(id));
+      btn.addEventListener("dblclick", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        startRenameTab(id, sh, btn, label);
+      });
       els.tabs.appendChild(btn);
     }
+  }
+
+  function startRenameTab(id, sh, btn, label) {
+    if (btn.querySelector("input.tab-name")) return;
+    const input = document.createElement("input");
+    input.type = "text";
+    input.className = "tab-name";
+    input.value = sh.name || id;
+    input.maxLength = 40;
+    label.replaceWith(input);
+    input.focus();
+    input.select();
+
+    let done = false;
+    const finish = async (save) => {
+      if (done) return;
+      done = true;
+      const next = input.value.trim() || sh.name || id;
+      if (save && next !== sh.name) {
+        sh.name = next;
+        try {
+          await api(`/api/sheets/${id}`, {
+            method: "PATCH",
+            body: JSON.stringify({ name: next, rows: sh.rows }),
+          });
+          toast("Hoja renombrada");
+        } catch (err) {
+          toast(err.message);
+        }
+      }
+      renderTabs();
+    };
+
+    input.addEventListener("click", (e) => e.stopPropagation());
+    input.addEventListener("mousedown", (e) => e.stopPropagation());
+    input.addEventListener("keydown", (e) => {
+      e.stopPropagation();
+      if (e.key === "Enter") {
+        e.preventDefault();
+        finish(true);
+      }
+      if (e.key === "Escape") {
+        e.preventDefault();
+        finish(false);
+      }
+    });
+    input.addEventListener("blur", () => finish(true));
   }
 
   function makeInput(value, className, onCommit) {
