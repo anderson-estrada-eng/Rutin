@@ -13,6 +13,7 @@ from schedule import (
     default_workbook,
     move_row,
     new_row,
+    normalize_link,
     parse_duration,
     recompute_sheet,
     as_bool,
@@ -152,6 +153,7 @@ def api_add_row(sheet_id: str):
         timed=as_bool(body.get("timed", True)),
         duration=body.get("duration", 30),
         notes=body.get("notes", ""),
+        link=body.get("link", ""),
     )
     index = body.get("index")
     if index is None:
@@ -178,6 +180,8 @@ def api_patch_row(sheet_id: str, row_index: int):
         row["task"] = str(body["task"])
     if "notes" in body:
         row["notes"] = str(body["notes"])
+    if "link" in body:
+        row["link"] = normalize_link(body["link"])
     if "timed" in body:
         row["timed"] = as_bool(body["timed"])
     if "duration" in body:

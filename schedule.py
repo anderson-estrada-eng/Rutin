@@ -161,6 +161,7 @@ def recompute_sheet(sheet: dict[str, Any]) -> dict[str, Any]:
     for row in rows:
         timed = as_bool(row.get("timed", True))
         row["timed"] = timed
+        row["link"] = normalize_link(row.get("link", ""))
         duration = parse_duration(row.get("duration"))
         row["duration_minutes"] = duration
         row["duration_label"] = format_duration(duration)
@@ -206,12 +207,40 @@ def move_row(sheet: dict[str, Any], from_index: int, to_index: int) -> dict[str,
     return recompute_sheet(sheet)
 
 
-def new_row(task: str = "", timed: bool = True, duration: Any = 30, notes: str = "") -> dict[str, Any]:
+def normalize_link(value: Any) -> str:
+    """
+    Normaliza vínculos:
+    - hoja interna: 'sheet:id', '#id', o solo el id/nombre
+    - externa / documento: https://..., http://..., o ruta tipo archivo.pdf
+    """
+    if value is None:
+        return ""
+    s = str(value).strip()
+    if not s:
+        return ""
+    lower = s.lower()
+    if lower.startswith("sheet:"):
+        target = s.split(":", 1)[1].strip()
+        return f"sheet:{target}" if target else ""
+    if s.startswith("#") and not s.startswith("#sheet"):
+        target = s[1:].strip()
+        return f"sheet:{target}" if target else ""
+    return s
+
+
+def new_row(
+    task: str = "",
+    timed: bool = True,
+    duration: Any = 30,
+    notes: str = "",
+    link: Any = "",
+) -> dict[str, Any]:
     return {
         "task": task,
         "timed": timed,
         "duration": duration,
         "notes": notes,
+        "link": normalize_link(link),
     }
 
 
@@ -222,10 +251,16 @@ def blank_sheet(name: str = "Nueva hoja") -> dict[str, Any]:
             "day_start": "6:00 AM",
             "day_end": "4:00 PM",
             "rows": [
-                new_row("Despertar / higiene", True, 30, ""),
-                new_row("Desayuno", True, 30, ""),
-                new_row("Bloque de estudio / trabajo", True, 120, ""),
-                new_row("Notas / recordatorios", False, 0, "Sin horario fijo"),
+                new_row("Despertar / higiene", True, 30, "", ""),
+                new_row("Desayuno", True, 30, "", ""),
+                new_row(
+                    "Bloque de estudio / trabajo",
+                    True,
+                    120,
+                    "Ver plan semanal",
+                    "sheet:semana",
+                ),
+                new_row("Notas / recordatorios", False, 0, "Sin horario fijo", ""),
             ],
         }
     )
@@ -242,9 +277,15 @@ def default_workbook() -> dict[str, Any]:
                     "day_start": "6:00 AM",
                     "day_end": "4:00 PM",
                     "rows": [
-                        new_row("Lunes — planificar", True, 45, ""),
-                        new_row("Martes — estudio", True, 90, ""),
-                        new_row("Miércoles — ejercicio", True, 60, ""),
+                        new_row("Lunes — planificar", True, 45, "", "sheet:dia"),
+                        new_row(
+                            "Martes — estudio",
+                            True,
+                            90,
+                            "Recurso externo",
+                            "https://www.notion.so",
+                        ),
+                        new_row("Miércoles — ejercicio", True, 60, "", ""),
                     ],
                 }
             ),

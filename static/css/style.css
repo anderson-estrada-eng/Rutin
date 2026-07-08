@@ -226,7 +226,7 @@ body {
 .sheet {
   width: 100%;
   border-collapse: collapse;
-  min-width: 860px;
+  min-width: 1020px;
 }
 
 .sheet th {
@@ -266,10 +266,57 @@ body {
 
 .col-handle { width: 36px; }
 .col-num { width: 40px; }
+.col-link { width: 180px; }
 .col-timed { width: 88px; text-align: center; }
 .col-dur { width: 110px; }
 .col-start, .col-end { width: 110px; }
 .col-del { width: 44px; }
+
+.link-cell {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.link-cell .cell-input {
+  flex: 1;
+  min-width: 0;
+}
+
+.link-go {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: var(--accent-dim);
+  color: var(--accent);
+  text-decoration: none;
+  font-size: 0.95rem;
+  cursor: pointer;
+  font-family: inherit;
+  padding: 0;
+}
+
+.link-go:hover {
+  border-color: var(--accent);
+  filter: brightness(1.08);
+}
+
+.link-go.is-sheet {
+  background: rgba(91, 140, 255, 0.14);
+  color: #8eb0ff;
+}
+
+.link-go.is-empty {
+  opacity: 0.35;
+  pointer-events: none;
+  background: transparent;
+}
 
 .handle {
   cursor: grab;

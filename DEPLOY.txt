@@ -1,77 +1,78 @@
 ================================================================================
-RUTINA — Pasos GitHub + PythonAnywhere
+RUTINA — GitHub + PythonAnywhere
+Repo: https://github.com/anderson-estrada-eng/Rutin
 ================================================================================
 
-A) EN TU PC (subir a GitHub)
-----------------------------
-1. Crea un repo PUBLICO en GitHub (ej. "Rutina"). No marques "Add README"
-   si ya tienes archivos locales.
+A) YA HECHO EN TU PC
+--------------------
+- git init / commit / push a:
+  https://github.com/anderson-estrada-eng/Rutin.git
 
-2. En la carpeta del proyecto (PowerShell):
-
-   git init
-   git add .
-   git commit -m "Rutina: hoja de horarios web"
-   git branch -M main
-   git remote add origin https://github.com/TU_USUARIO/Rutina.git
-   git push -u origin main
-
-3. Cada vez que cambies algo en Cursor:
-
-   git add .
-   git commit -m "descripcion corta"
-   git push origin main
+Cuando cambies código:
+  git add .
+  git commit -m "mensaje corto"
+  git push origin main
 
 
-B) EN PYTHONANYWHERE (primera vez)
-----------------------------------
-1. Entra a https://www.pythonanywhere.com y crea cuenta (Beginner gratis ok).
+B) PYTHONANYWHERE — PRIMERA VEZ
+-------------------------------
+1. Entra a https://www.pythonanywhere.com y crea / inicia sesión.
+   Anota tu usuario de PythonAnywhere (ej. anderson123). Abajo = TU_PA_USER.
 
-2. Consola Bash:
+2. Abre una consolas Bash (Dashboard → Consoles → Bash) y pega:
 
    cd ~
-   git clone https://github.com/TU_USUARIO/Rutina.git
-   cd Rutina
+   git clone https://github.com/anderson-estrada-eng/Rutin.git
+   cd Rutin
    python3.10 -m venv ~/.virtualenvs/rutina
    source ~/.virtualenvs/rutina/bin/activate
    pip install -r requirements.txt
 
-3. Pestaña Web → Add a new web app → Manual configuration → Python 3.10.
+   (Si python3.10 no existe, prueba: python3.11 o python3.12)
 
-4. Virtualenv: pon la ruta
-   /home/TU_USUARIO/.virtualenvs/rutina
+3. Pestaña Web → Add a new web app
+   - Beginner account: dominio gratis TU_PA_USER.pythonanywhere.com
+   - Manual configuration (NO Flask wizard)
+   - Elige Python 3.10 (o la misma versión del venv)
 
-5. WSGI configuration file → edita y deja algo como:
+4. En la página Web:
+   - Virtualenv: /home/TU_PA_USER/.virtualenvs/rutina
+   - Source code (si aparece): /home/TU_PA_USER/Rutin
+   - Working directory: /home/TU_PA_USER/Rutin
+
+5. Abre "WSGI configuration file" (enlace azul).
+   BORRA todo el contenido del archivo y pégalo esto
+   (cambia TU_PA_USER por tu usuario de PythonAnywhere):
 
    import sys
-   path = "/home/TU_USUARIO/Rutina"
+   path = "/home/TU_PA_USER/Rutin"
    if path not in sys.path:
        sys.path.insert(0, path)
    from app import application
 
-   (Cambia TU_USUARIO por tu usuario real de PythonAnywhere.)
+6. Save → botón verde Reload.
 
-6. Guarda → botón verde Reload.
-
-7. Abre: https://TU_USUARIO.pythonanywhere.com
+7. Abre: https://TU_PA_USER.pythonanywhere.com
 
 
 C) ACTUALIZAR DESPUÉS DE UN git push
 ------------------------------------
-En la consola Bash de PythonAnywhere:
+En Bash de PythonAnywhere:
 
-   cd ~/Rutina
+   cd ~/Rutin
    git pull origin main
    source ~/.virtualenvs/rutina/bin/activate
-   pip install -r requirements.txt   # solo si cambió requirements.txt
+   pip install -r requirements.txt
 
-Luego en Web → Reload.
+Luego Web → Reload.
 
 
-D) NOTAS
---------
-- En plan gratis, el sitio se duerme si nadie lo visita; un refresh lo despierta.
-- Los datos se guardan en data/workbook.json dentro del servidor.
-- Si quieres datos frescos del repo, haz pull; si editaste en la web, ese JSON
-  en el servidor es el que manda (no se pisa solo con pull si no hay conflicto).
+D) SI ALGO FALLA
+----------------
+- Error en el log: Web → Log files → Error log
+- "ModuleNotFoundError: No module named 'flask'"
+  → el Virtualenv no está bien puesto, o no hiciste pip install
+- Página en blanco / 500
+  → revisa que el WSGI tenga from app import application
+  → y que path sea /home/TU_PA_USER/Rutin (carpeta donde está app.py)
 ================================================================================

@@ -6,13 +6,13 @@
       "day_start": "6:00 AM",
       "day_end": "4:00 PM",
       "rows": [
-        { "task": "Despertar / higiene", "timed": true, "duration": 30, "notes": "" },
-        { "task": "Desayuno", "timed": true, "duration": 30, "notes": "" },
-        { "task": "Bloque de estudio / trabajo", "timed": true, "duration": 120, "notes": "" },
-        { "task": "Descanso / snack", "timed": true, "duration": 20, "notes": "" },
-        { "task": "Segundo bloque", "timed": true, "duration": 90, "notes": "" },
-        { "task": "Comida", "timed": true, "duration": 45, "notes": "" },
-        { "task": "Notas / ideas sueltas", "timed": false, "duration": 0, "notes": "Sin horario fijo" }
+        { "task": "Despertar / higiene", "timed": true, "duration": 30, "notes": "", "link": "" },
+        { "task": "Desayuno", "timed": true, "duration": 30, "notes": "", "link": "" },
+        { "task": "Bloque de estudio / trabajo", "timed": true, "duration": 120, "notes": "Ver plan semanal", "link": "sheet:semana" },
+        { "task": "Descanso / snack", "timed": true, "duration": 20, "notes": "", "link": "" },
+        { "task": "Segundo bloque", "timed": true, "duration": 90, "notes": "", "link": "" },
+        { "task": "Comida", "timed": true, "duration": 45, "notes": "", "link": "" },
+        { "task": "Notas / ideas sueltas", "timed": false, "duration": 0, "notes": "Sin horario fijo", "link": "" }
       ]
     },
     "semana": {
@@ -20,9 +20,9 @@
       "day_start": "6:00 AM",
       "day_end": "4:00 PM",
       "rows": [
-        { "task": "Lunes — planificar", "timed": true, "duration": 45, "notes": "" },
-        { "task": "Martes — estudio", "timed": true, "duration": 90, "notes": "" },
-        { "task": "Miércoles — ejercicio", "timed": true, "duration": 60, "notes": "" }
+        { "task": "Lunes — planificar", "timed": true, "duration": 45, "notes": "", "link": "sheet:dia" },
+        { "task": "Martes — estudio", "timed": true, "duration": 90, "notes": "Recurso externo", "link": "https://www.notion.so" },
+        { "task": "Miércoles — ejercicio", "timed": true, "duration": 60, "notes": "", "link": "" }
       ]
     }
   }

@@ -41,6 +41,97 @@
     return workbook?.sheets?.[activeId];
   }
 
+  function findSheetId(target) {
+    if (!workbook?.sheets || !target) return null;
+    const t = String(target).trim().toLowerCase();
+    if (workbook.sheets[t]) return t;
+    for (const [id, sh] of Object.entries(workbook.sheets)) {
+      if (id.toLowerCase() === t) return id;
+      if ((sh.name || "").trim().toLowerCase() === t) return id;
+    }
+    return null;
+  }
+
+  /** Clasifica el vínculo: hoja interna, URL/documento externo, o vacío. */
+  function parseLink(raw) {
+    const s = String(raw || "").trim();
+    if (!s) return { kind: "empty", value: "" };
+
+    const lower = s.toLowerCase();
+    if (lower.startsWith("sheet:")) {
+      const target = s.slice(6).trim();
+      const id = findSheetId(target);
+      return id
+        ? { kind: "sheet", value: id, label: workbook.sheets[id].name || id }
+        : { kind: "missing", value: target };
+    }
+    if (s.startsWith("#") && !s.startsWith("#http")) {
+      const target = s.slice(1).trim();
+      const id = findSheetId(target);
+      return id
+        ? { kind: "sheet", value: id, label: workbook.sheets[id].name || id }
+        : { kind: "missing", value: target };
+    }
+
+    // URL o documento externo
+    if (/^https?:\/\//i.test(s) || /^mailto:/i.test(s)) {
+      return { kind: "external", value: s };
+    }
+    // Archivo / drive / www sin protocolo → abrir como https o ruta relativa en nueva pestaña
+    if (
+      /^www\./i.test(s) ||
+      /\.(pdf|docx?|xlsx?|pptx?|txt|md|csv)(\?|#|$)/i.test(s) ||
+      /drive\.google|docs\.google|dropbox|onedrive|notion\.so/i.test(s)
+    ) {
+      const href = /^www\./i.test(s) ? `https://${s}` : (/^https?:\/\//i.test(s) ? s : s);
+      return { kind: "external", value: href.startsWith("http") || href.startsWith("/") ? href : `https://${href}` };
+    }
+
+    // Si coincide con el id o nombre de una hoja → vínculo interno (como Google Sheets)
+    const sheetId = findSheetId(s);
+    if (sheetId) {
+      return { kind: "sheet", value: sheetId, label: workbook.sheets[sheetId].name || sheetId };
+    }
+
+    // Texto libre desconocido: tratar como URL si parece dominio, si no intentar hoja
+    if (s.includes(".") && !s.includes(" ")) {
+      return { kind: "external", value: `https://${s}` };
+    }
+    return { kind: "missing", value: s };
+  }
+
+  async function goToSheet(sheetId) {
+    if (!sheetId || !workbook.sheets[sheetId]) {
+      toast("Hoja no encontrada");
+      return;
+    }
+    if (sheetId === activeId) return;
+    if (dirty) await saveAll();
+    activeId = sheetId;
+    try {
+      await api(`/api/active/${sheetId}`, { method: "POST", body: "{}" });
+    } catch (_) {
+      /* ignore */
+    }
+    render();
+    toast("Hoja: " + (workbook.sheets[sheetId].name || sheetId));
+  }
+
+  function openLink(raw) {
+    const info = parseLink(raw);
+    if (info.kind === "sheet") {
+      goToSheet(info.value);
+      return;
+    }
+    if (info.kind === "external") {
+      window.open(info.value, "_blank", "noopener,noreferrer");
+      return;
+    }
+    if (info.kind === "missing") {
+      toast("No se encontró la hoja o el enlace: " + info.value);
+    }
+  }
+
   function scheduleSave() {
     dirty = true;
     clearTimeout(saveTimer);
@@ -131,13 +222,7 @@
 
       btn.appendChild(name);
       btn.appendChild(close);
-      btn.addEventListener("click", async () => {
-        if (id === activeId) return;
-        if (dirty) await saveAll();
-        activeId = id;
-        await api(`/api/active/${id}`, { method: "POST", body: "{}" });
-        render();
-      });
+      btn.addEventListener("click", () => goToSheet(id));
       els.tabs.appendChild(btn);
     }
   }
@@ -231,6 +316,31 @@
         })
       );
 
+      const tdLink = document.createElement("td");
+      const linkWrap = document.createElement("div");
+      linkWrap.className = "link-cell";
+      if (row.link == null) row.link = "";
+      const linkInput = makeInput(row.link, "", (v) => {
+        row.link = v.trim();
+        scheduleSave();
+        refreshLinkButton(goBtn, row.link);
+      });
+      linkInput.placeholder = "sheet:semana o https://...";
+      linkInput.title =
+        "Hoja interna: sheet:id o nombre de pestaña. Externo/documento: https://... o archivo.pdf";
+      const goBtn = document.createElement("button");
+      goBtn.type = "button";
+      goBtn.className = "link-go";
+      goBtn.title = "Abrir vínculo";
+      refreshLinkButton(goBtn, row.link);
+      goBtn.addEventListener("click", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        openLink(row.link || linkInput.value);
+      });
+      linkWrap.append(linkInput, goBtn);
+      tdLink.appendChild(linkWrap);
+
       const tdTimed = document.createElement("td");
       tdTimed.className = "timed-check";
       const check = document.createElement("input");
@@ -304,9 +414,34 @@
       });
       tdDel.appendChild(del);
 
-      tr.append(tdHandle, tdNum, tdTask, tdTimed, tdDur, tdStart, tdEnd, tdNotes, tdDel);
+      tr.append(tdHandle, tdNum, tdTask, tdLink, tdTimed, tdDur, tdStart, tdEnd, tdNotes, tdDel);
       els.body.appendChild(tr);
     });
+  }
+
+  function refreshLinkButton(btn, raw) {
+    const info = parseLink(raw);
+    btn.classList.remove("is-empty", "is-sheet");
+    if (info.kind === "empty") {
+      btn.classList.add("is-empty");
+      btn.textContent = "↗";
+      btn.title = "Sin vínculo";
+      return;
+    }
+    if (info.kind === "sheet") {
+      btn.classList.add("is-sheet");
+      btn.textContent = "➝";
+      btn.title = "Ir a hoja: " + (info.label || info.value);
+      return;
+    }
+    if (info.kind === "missing") {
+      btn.classList.add("is-empty");
+      btn.textContent = "?";
+      btn.title = "No encontrada: " + info.value;
+      return;
+    }
+    btn.textContent = "↗";
+    btn.title = "Abrir en otra pestaña: " + info.value;
   }
 
   function render() {
@@ -328,7 +463,7 @@
     try {
       const updated = await api(`/api/sheets/${activeId}/rows`, {
         method: "POST",
-        body: JSON.stringify({ task: "", timed: true, duration: 30, notes: "" }),
+        body: JSON.stringify({ task: "", timed: true, duration: 30, notes: "", link: "" }),
       });
       workbook.sheets[activeId] = updated;
       render();
